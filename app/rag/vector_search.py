@@ -19,10 +19,13 @@ async def vector_search(
     Returns list of dicts with keys: id, content, metadata, score (distance).
     """
     stmt = text("""
-        SELECT id, content, metadata, embedding <=> :query_vec AS distance
-        FROM chunk_bge_m3
-        WHERE kb_id = :kb_id
-        ORDER BY embedding <=> :query_vec
+        SELECT c.id, c.content, c.metadata, c.doc_id,
+               d.filename AS doc_filename,
+               c.embedding <=> :query_vec AS distance
+        FROM chunk_bge_m3 c
+        LEFT JOIN document d ON c.doc_id = d.id
+        WHERE c.kb_id = :kb_id
+        ORDER BY c.embedding <=> :query_vec
         LIMIT :top_k
     """)
     result = await session.execute(
@@ -44,7 +47,8 @@ async def vector_search(
                 "id": str(row.id),
                 "content": row.content,
                 "title": title,
-                "doc_id": None,
+                "doc_id": str(row.doc_id) if row.doc_id else None,
+                "doc_filename": row.doc_filename,
                 "score": distance,
             })
     return results

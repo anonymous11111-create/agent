@@ -62,6 +62,9 @@ def create_app() -> FastAPI:
     from app.api.sse import router as sse_router
     from app.api.mcp_server import router as mcp_server_router
     from app.api.task import router as task_router
+    from app.api.confirmation import router as confirmation_router
+    from app.api.tool_call_log import router as tool_call_log_router
+    from app.api.rag_query_log import router as rag_query_log_router
 
     app.include_router(agent_router)
     app.include_router(chat_session_router)
@@ -72,6 +75,9 @@ def create_app() -> FastAPI:
     app.include_router(sse_router)
     app.include_router(mcp_server_router)
     app.include_router(task_router)
+    app.include_router(confirmation_router)
+    app.include_router(tool_call_log_router)
+    app.include_router(rag_query_log_router)
 
     @app.get("/health")
     async def health():

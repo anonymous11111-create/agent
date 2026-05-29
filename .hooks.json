@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "command": "python hooks/pre_tool_use.py"
+      }
+    ],
+    "PostToolUse": [],
+    "SessionStart": []
+  }
+}

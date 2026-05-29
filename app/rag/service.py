@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,10 +25,19 @@ class RagService:
         session: AsyncSession,
         kb_id: str,
         query: str,
-    ) -> list[dict]:
-        """Hybrid search: vector + keyword + RRF fusion."""
-        query_embedding = await embed_text(query)
+    ) -> tuple[list[dict], dict]:
+        """Hybrid search: vector + keyword + RRF fusion.
 
+        Returns (fused_results, debug_info) where debug_info contains
+        timing and retrieval counts for monitoring.
+        """
+        t_start = time.monotonic()
+
+        t0 = time.monotonic()
+        query_embedding = await embed_text(query)
+        embed_ms = round((time.monotonic() - t0) * 1000, 1)
+
+        t1 = time.monotonic()
         vector_results, keyword_results = await asyncio.gather(
             vector_search(
                 session,
@@ -44,6 +54,7 @@ class RagService:
                 threshold=settings.RAG_KEYWORD_THRESHOLD,
             ),
         )
+        retrieval_ms = round((time.monotonic() - t1) * 1000, 1)
 
         logger.info(
             "RAG: vector=%d, keyword=%d",
@@ -51,8 +62,22 @@ class RagService:
             len(keyword_results),
         )
 
+        t2 = time.monotonic()
         fused = rrf_fusion(vector_results, keyword_results, k=settings.RAG_RRF_K)
-        return fused[: settings.RAG_FINAL_TOP_N]
+        fusion_ms = round((time.monotonic() - t2) * 1000, 1)
+
+        total_ms = round((time.monotonic() - t_start) * 1000, 1)
+
+        debug_info = {
+            "vector_count": len(vector_results),
+            "keyword_count": len(keyword_results),
+            "embed_ms": embed_ms,
+            "retrieval_ms": retrieval_ms,
+            "fusion_ms": fusion_ms,
+            "total_ms": total_ms,
+        }
+
+        return fused[: settings.RAG_FINAL_TOP_N], debug_info
 
 
 rag_service = RagService()

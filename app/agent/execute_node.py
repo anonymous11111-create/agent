@@ -22,7 +22,10 @@ RETRYABLE_TOOLS = {"knowledge_query", "database_query", "send_email"}
 MAX_DUPLICATE_CALLS = settings.AGENT_MAX_DUPLICATE_CALLS
 MAX_RETRY_ATTEMPTS = settings.AGENT_MAX_RETRY_ATTEMPTS
 TOOL_TIMEOUT_SECONDS = 30.0
-# 子智能体需要更长的超时时间（运行完整的 think-execute 循环）
+
+# 需要用户确认的敏感工具
+CONFIRM_REQUIRED_TOOLS = {"task_delete", "send_email", "database_query"}
+CONFIRM_TIMEOUT = 120.0
 
 TOOL_TIMEOUT_OVERRIDES = {
     "delegate_task": 180.0,  # 3 分钟
@@ -112,12 +115,157 @@ async def _preprocess_tool_call(
     return tc, None
 
 
+async def _request_confirmation(
+    tool_name: str, tool_args: dict, config: RunnableConfig
+) -> tuple[bool, str]:
+    """Send confirmation request via SSE and wait for user response.
+
+    Returns (approved, message).
+    """
+    from app.services.confirmation_service import confirmation_service
+    from app.services.sse_service import sse_service
+    from app.schemas.sse_event import SseMessage, SsePayload, SseMetadata
+
+    conf = config.get("configurable", config)
+    sse_fn = conf.get("sse_fn")
+    session_id = conf.get("parent_session_id")
+    if not sse_fn or not session_id:
+        # No SSE available, auto-approve
+        return True, ""
+
+    pc = confirmation_service.create(session_id, tool_name, tool_args)
+
+    # Send confirmation request to frontend
+    sse_fn(
+        session_id,
+        SseMessage(
+            type="TOOL_CONFIRMATION_REQUIRED",
+            payload=SsePayload(
+                confirmationId=pc.confirmation_id,
+                toolName=tool_name,
+                toolInput=tool_args,
+            ),
+            metadata=SseMetadata(),
+        ),
+    )
+
+    # Wait for user response
+    approved = await confirmation_service.wait(pc, timeout=CONFIRM_TIMEOUT)
+    if approved:
+        return True, ""
+    else:
+        return False, f"用户拒绝了工具 {tool_name} 的执行"
+
+
+async def _instrument_tool_call(
+    tool_name: str,
+    tool_call_id: str,
+    tool_args: dict,
+    status: str,
+    config: RunnableConfig,
+    duration_ms: float | None = None,
+    error_message: str | None = None,
+    result_preview: str | None = None,
+):
+    """Persist tool call log to DB and emit SSE event."""
+    try:
+        from app.db.engine import async_session_factory
+        from app.services.tool_call_log_service import ToolCallLogService
+
+        conf = config.get("configurable", config)
+        session_id = conf.get("parent_session_id")
+        agent_id = conf.get("agent_id")
+
+        if session_id and agent_id:
+            async with async_session_factory() as db:
+                svc = ToolCallLogService(db)
+                log = await svc.create_log(
+                    session_id=session_id,
+                    agent_id=agent_id,
+                    tool_name=tool_name,
+                    tool_call_id=tool_call_id,
+                    arguments=tool_args,
+                    status=status,
+                    duration_ms=duration_ms,
+                    error_message=error_message,
+                    result_preview=result_preview,
+                )
+                await db.commit()
+                log_id = str(log.id)
+
+                # Emit SSE event
+                sse_fn = conf.get("sse_fn")
+                if sse_fn:
+                    from app.schemas.sse_event import (
+                        SseMessage, SsePayload, SseMetadata, SseToolCallUpdate,
+                    )
+                    sse_fn(
+                        session_id,
+                        SseMessage(
+                            type="TOOL_CALL_UPDATE",
+                            payload=SsePayload(
+                                toolCallUpdate=SseToolCallUpdate(
+                                    toolCallLogId=log_id,
+                                    toolName=tool_name,
+                                    toolCallId=tool_call_id,
+                                    status=status,
+                                    durationMs=duration_ms,
+                                    arguments=tool_args,
+                                    errorMessage=error_message,
+                                ),
+                            ),
+                            metadata=SseMetadata(),
+                        ),
+                    )
+    except Exception as e:
+        logger.warning("Tool call instrumentation failed: %s", e)
+
+
 async def _run_single_tool(
     tool: BaseTool, tool_args: dict, tool_name: str, tool_call_id: str,
     config: RunnableConfig, hook_manager
 ) -> str:
     """Execute a single tool and return the result string."""
+
+    # Check if user confirmation is required
+    if tool_name in CONFIRM_REQUIRED_TOOLS:
+        approved, msg = await _request_confirmation(tool_name, tool_args, config)
+        if not approved:
+            await _instrument_tool_call(
+                tool_name, tool_call_id, tool_args, "rejected", config,
+                error_message=msg,
+            )
+            return msg
+
+    # Emit "running" SSE event
+    conf = config.get("configurable", config)
+    sse_fn = conf.get("sse_fn")
+    session_id = conf.get("parent_session_id")
+    if sse_fn and session_id:
+        from app.schemas.sse_event import (
+            SseMessage, SsePayload, SseMetadata, SseToolCallUpdate,
+        )
+        sse_fn(
+            session_id,
+            SseMessage(
+                type="TOOL_CALL_UPDATE",
+                payload=SsePayload(
+                    toolCallUpdate=SseToolCallUpdate(
+                        toolName=tool_name,
+                        toolCallId=tool_call_id,
+                        status="running",
+                        arguments=tool_args,
+                    ),
+                ),
+                metadata=SseMetadata(),
+            ),
+        )
+
+    start = time.monotonic()
     tool_timeout = _get_tool_timeout(tool_name)
+    result_status = "success"
+    error_msg = None
+
     if tool_name in RETRYABLE_TOOLS:
         result = await _execute_tool_with_retry(tool, tool_args, config)
     else:
@@ -127,22 +275,35 @@ async def _run_single_tool(
             ))
         except asyncio.TimeoutError:
             logger.error("Tool %s timed out after %ss", tool_name, tool_timeout)
+            result_status = "timeout"
             result = (
                 f"工具调用超时: {tool_name} 执行超过 {tool_timeout}s\n"
                 f"请尝试其他方式完成任务，或告知用户该工具暂不可用。"
             )
         except Exception as e:
             logger.error("Tool %s failed: %s", tool_name, e)
+            result_status = "fail"
+            error_msg = f"{type(e).__name__} - {e}"
             result = (
                 f"工具调用失败: {type(e).__name__} - {e}\n"
                 f"请尝试其他方式完成任务，或告知用户该工具暂不可用。"
             )
+
+    duration_ms = round((time.monotonic() - start) * 1000, 1)
 
     # Persist large output
     result = ContextCompactor.persist_large_output(
         tool_call_id, result,
         persist_threshold=settings.CONTEXT_COMPACT_PERSIST_THRESHOLD,
         preview_chars=settings.CONTEXT_COMPACT_PREVIEW_CHARS,
+    )
+
+    # Instrument: log to DB + emit SSE
+    await _instrument_tool_call(
+        tool_name, tool_call_id, tool_args, result_status, config,
+        duration_ms=duration_ms,
+        error_message=error_msg,
+        result_preview=result[:500],
     )
 
     # -- PostToolUse hooks --
@@ -190,6 +351,12 @@ async def execute_node(state: AgentState, config: RunnableConfig) -> dict:
 
         if error:
             new_messages.append(ToolMessage(content=error, tool_call_id=tool_call_id))
+            # Instrument blocked/blocked tool calls
+            blocked_status = "blocked" if "blocked" in error.lower() or "permission" in error.lower() or "拦截" in error else "blocked"
+            await _instrument_tool_call(
+                tool_name, tool_call_id, tc.get("args", {}),
+                blocked_status, config, error_message=error,
+            )
             continue
 
         tool = tools_map[tool_name]

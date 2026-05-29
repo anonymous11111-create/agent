@@ -22,11 +22,13 @@ async def keyword_search(
         return []
 
     stmt = text("""
-        SELECT id, content, metadata,
-               ts_rank_cd(content_tsv, to_tsquery('simple', :ts_query)) AS rank
-        FROM chunk_bge_m3
-        WHERE kb_id = :kb_id
-          AND content_tsv @@ to_tsquery('simple', :ts_query)
+        SELECT c.id, c.content, c.metadata, c.doc_id,
+               d.filename AS doc_filename,
+               ts_rank_cd(c.content_tsv, to_tsquery('simple', :ts_query)) AS rank
+        FROM chunk_bge_m3 c
+        LEFT JOIN document d ON c.doc_id = d.id
+        WHERE c.kb_id = :kb_id
+          AND c.content_tsv @@ to_tsquery('simple', :ts_query)
         ORDER BY rank DESC
         LIMIT :top_k
     """)
@@ -49,7 +51,8 @@ async def keyword_search(
                 "id": str(row.id),
                 "content": row.content,
                 "title": title,
-                "doc_id": None,
+                "doc_id": str(row.doc_id) if row.doc_id else None,
+                "doc_filename": row.doc_filename,
                 "score": rank,
             })
     return results
