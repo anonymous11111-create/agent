@@ -16,6 +16,9 @@
 - **📝 技能系统** — 可扩展的 Skill 机制，支持领域专业知识注入
 - **🔄 上下文压缩** — 自动压缩对话历史，支持长对话
 - **⚡ 后台任务** — 异步任务执行与状态通知
+- **📊 工具调用日志** — 记录每次工具调用的状态、耗时、参数，支持 SSE 实时推送
+- **🔍 RAG 查询日志** — 向量/关键词检索的召回数、耗时、Top 分数等指标追踪
+- **🔐 操作确认** — 敏感工具（发邮件、删任务、数据库查询）执行前需用户确认
 
 ## 🏗️ 项目结构
 
@@ -23,7 +26,12 @@
 agent/
 ├── app/
 │   ├── agent/          # LangGraph Agent 核心（think-execute 循环）
+│   │   ├── think_node.py    # 决策节点（意图理解、工具选择）
+│   │   └── execute_node.py  # 执行节点（工具调用、确认、日志埋点）
 │   ├── api/            # FastAPI 路由层
+│   │   ├── confirmation.py      # 敏感操作确认接口
+│   │   ├── tool_call_log.py     # 工具调用日志查询接口
+│   │   └── rag_query_log.py     # RAG 查询日志与反馈接口
 │   ├── background/     # 后台任务管理
 │   ├── config.py       # 配置管理（pydantic-settings）
 │   ├── context_compact/ # 上下文压缩
@@ -33,12 +41,22 @@ agent/
 │   ├── mcp/            # MCP 客户端与工具路由
 │   ├── memory/         # 记忆管理
 │   ├── models/         # SQLAlchemy 数据模型
+│   │   ├── tool_call_log.py    # 工具调用日志模型
+│   │   └── rag_query_log.py    # RAG 查询日志模型
 │   ├── rag/            # RAG 检索（向量 + 关键词 + 融合）
 │   ├── schemas/        # Pydantic 请求/响应模型
+│   │   ├── sse_event.py        # SSE 事件模型（含工具/RAG 事件）
+│   │   ├── tool_call_log.py    # 工具日志请求/响应 Schema
+│   │   └── rag_query_log.py    # RAG 日志请求/响应 Schema
 │   ├── services/       # 业务逻辑层
+│   │   ├── confirmation_service.py      # 用户确认服务（asyncio.Event）
+│   │   ├── tool_call_log_service.py     # 工具日志查询服务
+│   │   └── rag_query_log_service.py     # RAG 日志查询服务
 │   ├── tasks/          # 任务管理
 │   ├── teams/          # 多智能体协作
 │   ├── tools/          # 原生工具集
+│   │   ├── email.py            # 邮件发送（需用户确认）
+│   │   └── knowledge_search.py # 知识库检索（含日志埋点）
 │   └── utils/          # 工具函数
 ├── skills/             # 技能目录
 │   └── eap-troubleshooting/  # 半导体设备故障排查技能
@@ -162,6 +180,66 @@ description: 技能描述
 ```
 
 Agent 通过 `loadSkill` 工具按需加载技能。
+
+## 🔐 操作确认
+
+对敏感工具启用执行前用户确认，防止误操作。当前受保护的工具：
+
+| 工具 | 说明 |
+|------|------|
+| `send_email` | 发送邮件 — 防止误发 |
+| `task_delete` | 删除任务 — 防止误删 |
+| `database_query` | 数据库查询 — 防止危险 SQL |
+
+**流程**：Agent 调用敏感工具 → SSE 推送 `TOOL_CONFIRMATION_REQUIRED` → 前端弹窗 → 用户确认/拒绝 → 继续/中断执行。
+
+**API**：
+- `POST /api/tool-confirm/{confirmation_id}` — 提交确认 (approved: true/false)
+- 超时默认拒绝，超时时间 120 秒
+
+## 📊 工具调用日志
+
+每次工具调用自动记录到数据库，并通过 SSE 实时推送状态变更。
+
+**记录字段**：
+- 会话 ID / Agent ID / 工具名称
+- 调用参数（JSON）
+- 执行状态：`running` → `success` / `fail` / `timeout` / `blocked` / `rejected`
+- 耗时（ms）
+- 错误信息 / 结果摘要
+
+**SSE 事件类型**：`TOOL_CALL_UPDATE`
+
+**API**：
+- `GET /api/tool-call-logs` — 查询日志（按 session/agent/tool/status 筛选，分页）
+- `GET /api/tool-call-logs/stats` — 统计信息（调用次数、成功率、平均耗时等）
+
+## 🔍 RAG 查询日志
+
+每次知识库检索自动记录召回路径和性能指标，支持前端展示检索质量。
+
+**记录字段**：
+- 查询文本 / 知识库名称
+- 向量召回数 / 关键词召回数 / 最终返回数
+- 各阶段耗时：Embedding → 检索 → RRF 融合 → 总耗时
+- Top-K 片段的分数、内容摘要、来源文档
+
+**SSE 事件类型**：`RAG_QUERY_UPDATE`
+
+**API**：
+- `GET /api/rag-query-logs` — 查询日志
+- `GET /api/rag-query-logs/stats` — 统计信息
+- `POST /api/rag-query-logs/{log_id}/feedback` — 提交检索质量反馈
+
+## 🔧 Claude Code Hooks
+
+项目包含 Claude Code 钩子配置，用于在工具调用前执行自定义逻辑：
+
+```
+.hooks.json          # 钩子注册配置
+hooks/
+  └── pre_tool_use.py   # 工具执行前拦截脚本
+```
 
 ## 🛠️ 技术栈
 
