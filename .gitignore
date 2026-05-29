@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+
+# Environment variables (contains API keys)
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Data & logs
+data/
+*.log
+app.log
+
+# Node modules (MCP SDK)
+node_modules/
+
+# Claude Code
+.claude/
+.task_outputs/
+
+# Package archives
+*.tgz
