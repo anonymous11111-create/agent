@@ -1,0 +1,10 @@
+{
+  "id": "645fd0af",
+  "status": "error",
+  "result": "Error: ",
+  "command": "python3 -u -c \"import sys; print(sys.version)\"",
+  "started_at": 1779710091.263905,
+  "finished_at": 1779710091.263905,
+  "result_preview": "Error:",
+  "output_file": ".runtime-tasks\\645fd0af.log"
+}

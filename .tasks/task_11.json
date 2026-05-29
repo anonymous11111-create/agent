@@ -1,0 +1,21 @@
+{
+  "id": 11,
+  "subject": "学习 Python 编程",
+  "description": "系统学习 Python 编程语言，从基础语法到实际项目实践。结合用户对后端开发和AI技术的兴趣，安排分阶段学习计划。",
+  "status": "completed",
+  "priority": "high",
+  "blockedBy": [],
+  "blocks": [],
+  "owner": "",
+  "tags": [
+    "Python",
+    "学习",
+    "后端开发",
+    "AI"
+  ],
+  "progress": 0,
+  "sessionId": "204c99af-9f5b-4983-a3b0-cdf8b58c8d9b",
+  "agentId": "b2f4f098-3759-443e-ae4a-9ab8d42c421f",
+  "createdAt": "2026-05-29T17:31:08.504290",
+  "updatedAt": "2026-05-29T17:31:47.245789"
+}

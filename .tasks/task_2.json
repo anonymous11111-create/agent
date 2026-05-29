@@ -1,0 +1,9 @@
+{
+  "id": 2,
+  "subject": "后端开发 - FastAPI任务管理API",
+  "description": "使用FastAPI开发任务管理的RESTful API，包含增删改查功能",
+  "status": "in_progress",
+  "blockedBy": [],
+  "blocks": [],
+  "owner": ""
+}

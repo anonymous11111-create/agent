@@ -114,7 +114,7 @@ async def _run_agent(session_id: str, agent_id: str):
         memory_manager.load_all()
 
         # Initialize task manager
-        task_manager = TaskManager(Path.cwd() / ".tasks")
+        task_manager = TaskManager(Path.cwd() / ".tasks", session_id=session_id, agent_id=agent_id)
 
         # Initialize background manager
         background_manager = AsyncBackgroundManager()

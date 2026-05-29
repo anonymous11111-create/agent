@@ -10,7 +10,7 @@ from app.tools.email import send_email
 from app.tools.skill import load_skill
 from app.tools.subagent import delegate_task
 from app.tools.memory import save_memory
-from app.tools.tasks import task_create, task_update, task_list, task_get
+from app.tools.tasks import task_create, task_update, task_list, task_get, task_delete
 from app.tools.teams import (
     send_message,
     read_inbox,
@@ -38,6 +38,7 @@ OPTIONAL_TOOLS_MAP = {
     "taskUpdate": task_update,
     "taskList": task_list,
     "taskGet": task_get,
+    "taskDelete": task_delete,
     "sendMessage": send_message,
     "readInbox": read_inbox,
     "broadcast": broadcast,
@@ -78,6 +79,7 @@ TOOL_CATEGORY_MAP = {
     "taskUpdate": "task",
     "taskList": "task",
     "taskGet": "task",
+    "taskDelete": "task",
     "delegateTask": "agent",
     "saveMemory": "memory",
     "sendMessage": "team",

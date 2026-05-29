@@ -24,9 +24,16 @@ class SsePayloadMessage(BaseModel):
     updatedAt: Optional[str] = None
 
 
+class SseTaskUpdate(BaseModel):
+    action: str        # "created" | "updated" | "deleted"
+    task: Optional[Any] = None
+    taskId: Optional[int] = None
+
+
 class SsePayload(BaseModel):
     message: Optional[SsePayloadMessage] = None
     statusText: Optional[str] = None
+    taskUpdate: Optional[SseTaskUpdate] = None
 
 
 class SseMetadata(BaseModel):

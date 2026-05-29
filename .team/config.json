@@ -1,0 +1,50 @@
+{
+  "team_name": "default",
+  "members": [
+    {
+      "name": "后端开发助手",
+      "role": "FastAPI后端开发者",
+      "status": "working"
+    },
+    {
+      "name": "前端开发助手",
+      "role": "前端开发者",
+      "status": "working"
+    },
+    {
+      "name": "数据分析师",
+      "role": "数据分析专家",
+      "status": "working"
+    },
+    {
+      "name": "数据采集员",
+      "role": "数据采集与搜索专家",
+      "status": "working"
+    },
+    {
+      "name": "代码工程师",
+      "role": "编程与开发专家",
+      "status": "working"
+    },
+    {
+      "name": "数据分析师_01",
+      "role": "数据分析与报告专家",
+      "status": "working"
+    },
+    {
+      "name": "数据采集器-DataCollector",
+      "role": "数据采集智能体",
+      "status": "working"
+    },
+    {
+      "name": "数据分析器-DataAnalyzer",
+      "role": "数据分析智能体",
+      "status": "working"
+    },
+    {
+      "name": "报告生成器-ReportGenerator",
+      "role": "报告生成智能体",
+      "status": "working"
+    }
+  ]
+}

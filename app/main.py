@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
+# force reload
 
 # Windows requires ProactorEventLoop for subprocess support (used by MCP clients).
 # uvicorn --reload may default to SelectorEventLoop which raises NotImplementedError.
@@ -45,7 +46,7 @@ def create_app() -> FastAPI:
     # CORS for React frontend
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "http://localhost:8080"],
+        allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:5177", "http://localhost:3000", "http://localhost:8080"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     from app.api.tool import router as tool_router
     from app.api.sse import router as sse_router
     from app.api.mcp_server import router as mcp_server_router
+    from app.api.task import router as task_router
 
     app.include_router(agent_router)
     app.include_router(chat_session_router)
@@ -69,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(tool_router)
     app.include_router(sse_router)
     app.include_router(mcp_server_router)
+    app.include_router(task_router)
 
     @app.get("/health")
     async def health():

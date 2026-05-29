@@ -1,0 +1,10 @@
+{
+  "id": "4eb0fe01",
+  "status": "error",
+  "result": "Error: ",
+  "command": "python --version",
+  "started_at": 1779710096.0813308,
+  "finished_at": 1779710096.0833583,
+  "result_preview": "Error:",
+  "output_file": ".runtime-tasks\\4eb0fe01.log"
+}

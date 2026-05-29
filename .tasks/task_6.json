@@ -1,0 +1,9 @@
+{
+  "id": 6,
+  "subject": "子任务2：代码工程师 - 编写AI编程工具示例代码",
+  "description": "代码工程师需选择GitHub Copilot等工具，编写Python示例代码",
+  "status": "pending",
+  "blockedBy": [],
+  "blocks": [],
+  "owner": ""
+}

@@ -1,0 +1,9 @@
+{
+  "id": 7,
+  "subject": "子任务3：数据分析师 - 生成完整分析报告",
+  "description": "数据分析师需汇总数据采集员和代码工程师的成果，生成Markdown报告",
+  "status": "pending",
+  "blockedBy": [],
+  "blocks": [],
+  "owner": ""
+}
