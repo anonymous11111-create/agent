@@ -1,9 +1,0 @@
-{
-  "id": 4,
-  "subject": "多智能体协作测试",
-  "description": "测试多智能体协作能力，创建一个简单的Python后端API项目",
-  "status": "completed",
-  "blockedBy": [],
-  "blocks": [],
-  "owner": ""
-}

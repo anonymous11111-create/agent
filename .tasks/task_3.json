@@ -1,9 +1,0 @@
-{
-  "id": 3,
-  "subject": "前端开发 - 任务管理界面",
-  "description": "使用HTML+JS开发任务管理前端界面，调用后端API",
-  "status": "in_progress",
-  "blockedBy": [],
-  "blocks": [],
-  "owner": ""
-}

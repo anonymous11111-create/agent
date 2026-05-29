@@ -36,5 +36,17 @@ node_modules/
 .claude/
 .task_outputs/
 
+# Runtime data (should not be in version control)
+.memory/
+.tasks/
+.runtime-tasks/
+.team/
+.transcripts/
+.claude-plugin/
+
 # Package archives
 *.tgz
+
+# Test files
+test_api.py
+test_run.py

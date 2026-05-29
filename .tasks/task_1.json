@@ -1,9 +1,0 @@
-{
-  "id": 1,
-  "subject": "设计并实现一个简单的任务管理系统",
-  "description": "协作完成一个任务管理系统的设计和实现，包含前后端",
-  "status": "in_progress",
-  "blockedBy": [],
-  "blocks": [],
-  "owner": ""
-}
